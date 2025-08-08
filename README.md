@@ -83,7 +83,7 @@ func (m docMapper) Map(name string) (string, error) {
 }
 ```
 
-### 4. Generate SQL Conditions
+### 4. Generate SQL Conditions And Use It In Query
 
 ```go
 sql, args, err := AuthorizeSQL(ps, entities, &AuthorizeSQLRequest{
@@ -94,57 +94,24 @@ sql, args, err := AuthorizeSQL(ps, entities, &AuthorizeSQLRequest{
     }),
     FieldMapper: docMapper{},
 })
+
+query := fmt.Sprintf("SELECT * FROM documents WHERE %s", sql)
+rows, err := db.Query(query, args...)
 ```
 
 ## Example Results
 
 Based on the policies above, here are the SQL conditions generated for different users:
 
-| User | Role | SQL Condition |
-|------|------|---------------|
-| alice | Admin | `1 = 1` |
-| bob | Normal User | `(document.owner = ? OR document.is_public = ?)` |
-| charlie | Blocked User | `1 = 0` |
-| unauthenticated | Guest | `document.is_public = ?` |
+| User | Role | SQL Condition | Args |
+|------|------|---------------|------|
+| alice | Admin | `1 = 1` | `[]` |
+| bob | Normal User | `(document.owner = ? OR document.is_public = ?)` | `["bob", true]` |
+| charlie | Blocked User | `1 = 0` | `[]` |
+| unauthenticated | Guest | `document.is_public = ?` | `[true]` |
 
-## Usage in Database Queries
+see complete code in `authorize_test.go` 
 
-```go
-// Example: Query documents for a specific user
-sql, args, err := AuthorizeSQL(policies, entities, &AuthorizeSQLRequest{
-    Principal:   userEntity,
-    Action:      cedar.NewEntityUID("Action", "ViewDocument"),
-    Context:     context,
-    FieldMapper: docMapper{},
-})
-if err != nil {
-    return err
-}
-
-query := fmt.Sprintf("SELECT * FROM documents WHERE %s", sql)
-rows, err := db.Query(query, args...)
-```
-
-## API Reference
-
-### AuthorizeSQLRequest
-
-```go
-type AuthorizeSQLRequest struct {
-    Principal   cedar.EntityUID
-    Action      cedar.EntityUID
-    Context     cedar.Value
-    FieldMapper FieldMapper
-}
-```
-
-### FieldMapper Interface
-
-```go
-type FieldMapper interface {
-    Map(name string) (string, error)
-}
-```
 
 ## Related Links
 
